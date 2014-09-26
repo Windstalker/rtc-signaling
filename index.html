@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <title>WebRTC</title>
+    <link rel="stylesheet" type="text/css" href="css/index.css">
+    <script type="text/javascript" src="node_modules/engine.io-client/engine.io.js"></script>
+</head>
+<body>
+<div class="row">
+    <button id="login">Login</button>
+    <button id="get_users">Get user list</button>
+    <button id="connect">Connect</button>
+    <button id="disconnect">Disconnect</button>
+    <button id="clear">Clear log</button>
+</div>
+<div class="row">
+	<form id="msg_form" onsubmit="event.preventDefault()">
+    	<input type="text" id="msg" placeholder="Your message"/>
+    	<button id="send" type="submit">Send</button>
+	</form>
+</div>
+<pre id="logger"></pre>
+<ul id="user_list">
+    <!--<li>Username</li>-->
+</ul>
+<div class="row">
+    <video id="remote"></video>
+    <video id="local"></video>
+</div>
+<script type="text/javascript" src="signal_client.js"></script>
+<script>
+
+</script>
+</body>
+</html>

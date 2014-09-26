@@ -1,0 +1,14 @@
+{
+	"name" : "rtc-signaling",
+	"version" : "0.0.1",
+	"description" : "Skill-up project about RTC (real-time communication). WebSockets, Node.js, engine.io framework.",
+	"main" : "signal_server.js",
+	"dependencies": {
+		"engine.io": "~1.3.1",
+		"engine.io-client": "~1.3.1"
+	},
+	"repository" : {
+		"type" : "git",
+		"url" : ""
+	}
+}

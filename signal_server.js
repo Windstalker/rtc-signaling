@@ -105,6 +105,7 @@ module.exports = (function () {
 		});
 
 //		this.sendUsersList.call(this, client); // sending current userlist to new logged user
+		// TODO: make events instead of typed commands, which could trigger some callbacks (similar to Backbone.js events)
 		this.broadcastUsersList(); // sending current userlist to all connected clients
 	};
 
@@ -113,6 +114,13 @@ module.exports = (function () {
 
 		log('Logout request received from ' + client.id);
 		if (users.hasOwnProperty(client.id)) {
+			this.broadcast({
+				type: "user.left",
+				username: users[client.id]
+			});
+
+			this.broadcastUsersList();
+
 			delete users[client.id];
 		}
 	};

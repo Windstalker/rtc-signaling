@@ -10,6 +10,7 @@
 	var PERMANENT_RECONNECTION = false;
 
 	var userList = [],
+		username = '',
 		socket = null;
 
 	// elements
@@ -97,23 +98,24 @@
 	};
 
 	var messageHandlers = {
-		"user.join": function () {
-
+		"user.join": function (data) {
+			log(data["username"] + " joined the room");
 		},
-		"user.left": function () {
-
+		"user.left": function (data) {
+			log(data["username"] + " left the room");
 		},
 		"user.list": function (data) {
-			log(data.usernames);
+			userList = data.usernames;
+			renderUserList();
 		},
-		"user.login.success": function () {
-
+		"user.login.success": function (data) {
+			username = data.username;
 		},
 		"user.login.error": function () {
-
+			username = "";
 		},
 		"user.logout.success": function () {
-
+			username = "";
 		},
 		"user.logout.error": function () {
 

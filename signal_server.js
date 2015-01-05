@@ -71,25 +71,41 @@ module.exports = (function () {
 		});
 	};
 
-	SignalServer.prototype.broadcast = function (data, cb, excluded) {
+	SignalServer.prototype.broadcast = function () {
 		var sockets = this.server.clients;
-		var excludedClients =
-			typeof cb !== 'function' && cb.length && cb ||
-			excluded.length && excluded ||
+		var data = arguments[0];
+		var cb = typeof arguments[1] === 'function' && arguments[1] || function () {};
+		var excluded = arguments.length === 2 && arguments[1] instanceof Array && arguments[1] ||
+			arguments[2] ||
 			[];
 		for (var i in sockets) {
-			if (sockets.hasOwnProperty(i) && excludedClients.indexOf(sockets[i].id) < 0) {
+			if (sockets.hasOwnProperty(i) && excluded.indexOf(sockets[i].id) < 0) {
 				sockets[i].sendJSON(data, cb);
 			}
 		}
 	};
 
 	SignalServer.prototype.userLogin = function (client, data) { // user tries to login to server
-		var users = this.users;
-		log('Login request received from ' + client.id);
-		users[client.id] = data["username"];
+		var users = this.users,
+			username = data["username"];
 
-		this.sendUsersList.call(this, client); // sending current userlist to new logged user
+		log('Login request received from ' + client.id);
+		log(username + " joined the room");
+
+		users[client.id] = username;
+
+		client.sendJSON({
+			type: "user.login.success",
+			username: username
+		});
+
+		this.broadcast({
+			type: "user.join",
+			username: username
+		});
+
+//		this.sendUsersList.call(this, client); // sending current userlist to new logged user
+		this.broadcastUsersList(); // sending current userlist to all connected clients
 	};
 
 	SignalServer.prototype.userLogout = function (client) { // user tries to logout from server
@@ -110,6 +126,14 @@ module.exports = (function () {
 			}
 		}
 		return list;
+	};
+
+	SignalServer.prototype.broadcastUsersList = function () {
+		var signalServer = this;
+		signalServer.broadcast({
+			type: "user.list",
+			usernames: signalServer.getUserList()
+		});
 	};
 
 	SignalServer.prototype.sendUsersList = function (client) {

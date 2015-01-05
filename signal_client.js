@@ -1,4 +1,5 @@
 (function () {
+	var IP = '192.168.13.244';
 	var PORT = 3000;
 	var Socket = eio.Socket;
 
@@ -39,7 +40,7 @@
 		}
 	};
 
-	socket = new Socket('ws://192.168.13.244:' + PORT);
+	socket = new Socket('ws://' + IP + ':' + PORT);
 
 	socket.isOpened = false;
 	window.SS = socket;
@@ -101,6 +102,9 @@
 		},
 		"user.left": function () {
 
+		},
+		"user.list": function (data) {
+			log(data.usernames);
 		},
 		"user.login.success": function () {
 

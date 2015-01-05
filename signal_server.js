@@ -62,6 +62,9 @@ module.exports = (function () {
 			});
 
 			socket.on('close', function () {
+				if (self.users.hasOwnProperty(this.id)) {
+					self.userLogout(this);
+				}
 				log('Connection closed: ' + socket.id);
 				log('Connections count: ' + socketsCount);
 			});
@@ -116,7 +119,7 @@ module.exports = (function () {
 		log('List request from ' + client.id);
 		if (users.hasOwnProperty(client.id)) {
 			client.sendJSON({
-				type: "list.users",
+				type: "user.list",
 				usernames: signalServer.getUserList()
 			});
 		}

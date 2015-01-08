@@ -18,12 +18,20 @@ module.exports = (function () {
 
 		log('Signal Server start listening on port: ' + this.port);
 
-		this.socketHandlers = {
+		this.chatRequests = {
 			"user.login": "userLogin",
 			"user.logout": "userLogout",
-			"user.msg.public": "userPublicMsgSend",
-			"user.msg.private": "userPrivateMsgSend",
+			"user.msg.public": "sendUserPublicMsg",
+			"user.msg.private": "sendUserPrivateMsg",
 			"user.list.users": "sendUsersList"
+		};
+
+		this.chatEvents = {
+			"user.status.change": "onUserStatusChange",
+			"user.login": "onUserLogin",
+			"user.logout": "onUserLogout",
+			"msg.public": "onPublicMsg",
+			"msg.private": "onPrivateMsg"
 		};
 
 		this.attachEvents();
@@ -32,7 +40,8 @@ module.exports = (function () {
 	};
 
 	SignalServer.prototype.attachEvents = function () {
-		var socketHandlers = this.socketHandlers;
+		var chatRequests = this.chatRequests;
+		var chatEvents = this.chatEvents;
 		var server = this.server;
 		var self = this;
 
@@ -49,8 +58,9 @@ module.exports = (function () {
 
 				try {
 					parsed = JSON.parse(data);
-					callbackName = socketHandlers[parsed.type];
+					callbackName = chatRequests[parsed.type];
 					if (parsed && callbackName) {
+						parsed.sender = self.users[socket.id];
 						self[callbackName](socket, parsed);
 					} else {
 						log("Unknown command type");
@@ -69,6 +79,13 @@ module.exports = (function () {
 				log('Connections count: ' + socketsCount);
 			});
 		});
+
+		for (var i in chatEvents) {
+			var handlerName = chatEvents[i];
+			if (chatEvents.hasOwnProperty(i) && typeof self[handlerName] === 'function') {
+				server.on(i, self[chatEvents[i]].bind(self));
+			}
+		}
 	};
 
 	SignalServer.prototype.broadcast = function () {
@@ -90,39 +107,67 @@ module.exports = (function () {
 			username = data["username"];
 
 		log('Login request received from ' + client.id);
-		log(username + " joined the room");
 
-		users[client.id] = username;
+		if (!users.hasOwnProperty(client.id)) {
+			users[client.id] = username;
+			client.sendJSON({
+				type: "user.login.success",
+				username: username
+			});
 
-		client.sendJSON({
-			type: "user.login.success",
-			username: username
-		});
+			log(username + " joined the room");
 
-		this.broadcast({
-			type: "user.join",
-			username: username
-		});
+			this.server.emit("user.login", client);
+			this.server.emit("user.status.change", client, "join");
+		} else {
+			client.sendJSON({
+				type: "user.login.error",
+				username: username
+			});
 
-//		this.sendUsersList.call(this, client); // sending current userlist to new logged user
-		// TODO: make events instead of typed commands, which could trigger some callbacks (similar to Backbone.js events)
-		this.broadcastUsersList(); // sending current userlist to all connected clients
+			log("Error: " + client.id + " has already logged in");
+
+			// TODO: Separate rename functionality
+			log(client.id + " committed rename request");
+
+			users[client.id] = username;
+
+			this.server.emit("user.status.change", client, "rename");
+		}
+
 	};
 
 	SignalServer.prototype.userLogout = function (client) { // user tries to logout from server
 		var users = this.users;
-
 		log('Logout request received from ' + client.id);
+
 		if (users.hasOwnProperty(client.id)) {
-			this.broadcast({
-				type: "user.left",
-				username: users[client.id]
+			var username = users[client.id];
+			client.sendJSON({
+				type: "user.logout.success",
+				username: username
 			});
 
-			this.broadcastUsersList();
-
 			delete users[client.id];
+
+			this.server.emit("user.status.change", client, "left", username);
+			this.server.emit("user.logout", client);
+		} else {
+			client.sendJSON({
+				type: "user.logout.error"
+			});
+
+			log("Error: " + client.id + " has never logged before");
 		}
+	};
+
+	SignalServer.prototype.onUserStatusChange = function (client, status, username) {
+		var users = this.users;
+		this.broadcast({
+			type: "user." + status,
+			username: username || users[client.id]
+		});
+		this.broadcastUsersList();
 	};
 
 	SignalServer.prototype.getUserList = function () {
@@ -157,30 +202,31 @@ module.exports = (function () {
 		}
 	};
 
-	SignalServer.prototype.userPublicMsgSend = function (client, data) {
+	SignalServer.prototype.sendUserPublicMsg = function (client, data) {
 		var users = this.users,
 			signalServer = this;
 
-		log('Public message from ' + client.id);
-		log(data["text"]);
 		if (users.hasOwnProperty(client.id)) {
+			log('Public message from ' + client.id);
+			log(data["text"]);
 			signalServer.broadcast(data, !data["returnMessage"] && client.id);
+			this.server.emit("msg.public", client, data);
 		}
 	};
 
-	SignalServer.prototype.userPrivateMsgSend = function (client, data) {
+	SignalServer.prototype.sendUserPrivateMsg = function (client, data) {
 		var users = this.users;
 		var server = this.server;
 
 		for (var i in users) {
-			if (users.hasOwnProperty(i) && users[i] === data["username"]) {
+			if (users.hasOwnProperty(i) && users[i] === data["receiver"]) {
 				log('Private message from ' + client.id + " to " + i);
 				log(data["text"]);
-
-				server.clients[i].send(data);
+				server.clients[i].sendJSON(data);
 				if (data["returnMessage"] !== false) {
 					client.sendJSON(data);
 				}
+				this.server.emit("msg.private", client, i, data);
 			}
 		}
 	};

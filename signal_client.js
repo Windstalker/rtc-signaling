@@ -13,6 +13,10 @@
 		username = '',
 		socket = null;
 
+	var chatCmdRegExp = {
+		pm: /^\\priv\s(\S+)\s(.*)/
+	};
+
 	// elements
 	var login = document.getElementById('login');
 	var connect = document.getElementById('connect');
@@ -80,17 +84,27 @@
 		},
 		"click #login": function () {
 			var username = window.prompt('Enter your username');
-			socket.sendJSON({
-				type: 'user.login',
-				username: username
-			});
+			if (socket.isOpened) {
+				socket.sendJSON({
+					type: 'user.login',
+					username: username
+				});
+			}
 		},
 		"click #send": function () {
+			var rexp = chatCmdRegExp.pm;
 			if (msg.value.length > 0 && socket.isOpened) {
-				socket.sendJSON({
-					type: "user.msg.public",
-					text: msg.value
-				});
+				var privParse = msg.value.match(rexp);
+				var isPrivMsg = !!privParse;
+				var body = {
+					type: "user.msg." + (isPrivMsg ? 'private' : 'public'),
+					text: isPrivMsg ? privParse[2] : msg.value
+				};
+				if (isPrivMsg) {
+					body.receiver = privParse[1];
+				}
+				console.log(body);
+				socket.sendJSON(body);
 				msg.value = "";
 			}
 		},
@@ -121,10 +135,10 @@
 
 		},
 		"user.msg.public": function (data) {
-			log(data.text);
+			log(data.sender + ': ' + data.text);
 		},
 		"user.msg.private": function (data) {
-
+			log(data.sender + ' --> ' + data.receiver + ': ' + data.text);
 		}
 	};
 

@@ -19,6 +19,7 @@
 
 	// elements
 	var login = document.getElementById('login');
+	var logout = document.getElementById('logout');
 	var connect = document.getElementById('connect');
 	var disconnect = document.getElementById('disconnect');
 	var getUsers = document.getElementById('get_users');
@@ -54,6 +55,7 @@
 		reconnectCount = 0;
 		socket.isOpened = true;
 		log('connection opened');
+		requestUserList();
 	});
 
 	socket.on('error', function () {
@@ -62,6 +64,7 @@
 
 	socket.on('close', function () {
 		socket.isOpened = false;
+		clearUserList();
 		log('connection closed');
 	});
 
@@ -91,6 +94,13 @@
 				});
 			}
 		},
+		"click #logout": function () {
+			if (socket.isOpened) {
+				socket.sendJSON({
+					type: 'user.logout'
+				});
+			}
+		},
 		"click #send": function () {
 			var rexp = chatCmdRegExp.pm;
 			if (msg.value.length > 0 && socket.isOpened) {
@@ -108,6 +118,7 @@
 				msg.value = "";
 			}
 		},
+		"click #get_users": requestUserList,
 		"click #clear": logClear
 	};
 
@@ -183,6 +194,12 @@
 		loggerEl.innerHTML = "";
 	}
 
+	function requestUserList() {
+		socket.sendJSON({
+			type: "user.list"
+		});
+	}
+
 	function renderUserList() {
 		userListEl.innerHTML = "";
 		for (var i = 0; i < userList.length; i++) {
@@ -190,6 +207,11 @@
 			item.innerText = userList[i];
 			userListEl.appendChild(item);
 		}
+	}
+
+	function clearUserList() {
+		userListEl.innerHTML = "";
+		userList = [];
 	}
 
 	attachEvents();

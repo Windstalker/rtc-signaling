@@ -23,7 +23,7 @@ module.exports = (function () {
 			"user.logout": "userLogout",
 			"user.msg.public": "sendUserPublicMsg",
 			"user.msg.private": "sendUserPrivateMsg",
-			"user.list.users": "sendUsersList"
+			"user.list": "sendUsersList"
 		};
 
 		this.chatEvents = {
@@ -88,18 +88,33 @@ module.exports = (function () {
 		}
 	};
 
-	SignalServer.prototype.broadcast = function () {
+	SignalServer.prototype.broadcast = function (d, f, e) {
 		var sockets = this.server.clients;
-		var data = arguments[0];
-		var cb = typeof arguments[1] === 'function' && arguments[1] || function () {};
-		var excluded = arguments.length === 2 && arguments[1] instanceof Array && arguments[1] ||
-			arguments[2] ||
-			[];
-		for (var i in sockets) {
+		var data = d;
+		var cb = typeof f === 'function' && f || function () {};
+		var excluded = e instanceof Array && e || [];
+		var i;
+
+		if (typeof e === 'function') {
+			for (i in sockets) {
+				if (e.call(this, sockets[i], i, sockets)) {
+					excluded.push(sockets[i].id);
+				}
+			}
+		}
+
+		for (i in sockets) {
 			if (sockets.hasOwnProperty(i) && excluded.indexOf(sockets[i].id) < 0) {
 				sockets[i].sendJSON(data, cb);
 			}
 		}
+	};
+
+	SignalServer.prototype.broadcastToLogged = function (d, f) {
+		var logged = this.users;
+		this.broadcast(d, f, function (s, id) {
+			return !logged.hasOwnProperty(id);
+		});
 	};
 
 	SignalServer.prototype.userLogin = function (client, data) { // user tries to login to server
@@ -194,12 +209,10 @@ module.exports = (function () {
 		var signalServer = this;
 
 		log('List request from ' + client.id);
-		if (users.hasOwnProperty(client.id)) {
-			client.sendJSON({
-				type: "user.list",
-				usernames: signalServer.getUserList()
-			});
-		}
+		client.sendJSON({
+			type: "user.list",
+			usernames: signalServer.getUserList()
+		});
 	};
 
 	SignalServer.prototype.sendUserPublicMsg = function (client, data) {

@@ -59,87 +59,18 @@ var ChatApp = function (opts) {
 		}
 	};
 
-	app.elements = {	// elements
-		login : document.getElementById('login'),
-		logout : document.getElementById('logout'),
-		connect : document.getElementById('connect'),
-		disconnect : document.getElementById('disconnect'),
-		getUsers : document.getElementById('get_users'),
-
-		msg : document.getElementById('msg'),
-		send : document.getElementById('send'),
-
-		userListEl : document.getElementById('user_list'),
-		loggerEl : document.getElementById('logger'),
-		clearLogBtn : document.getElementById('clear')
-	};
-	app.domListeners = {
-		"click #connect": function () {
-			if (!app.socket.hasOpenState()) {
-				console.log('connecting');
-				app.socket.open();
-			}
-		},
-		"click #disconnect": function () {
-			if (app.socket.hasOpenState()) {
-				console.log('disconnecting');
-				app.socket.close();
-			}
-			app.socket.stopTimer();
-		},
-		"click #login": function () {
-			var username = window.prompt('Enter your username');
-			if (app.socket.hasOpenState() && username && username.length) {
-				app.socket.sendJSON({
-					type: 'user.login',
-					username: username
-				});
-			}
-		},
-		"click #logout": function () {
-			if (app.socket.hasOpenState()) {
-				app.socket.sendJSON({
-					type: 'user.logout'
-				});
-			}
-		},
-		"click #send": function () {
-			var rexp = app.msgTemplates.pm;
-			var msg = app.elements.msg;
-			if (msg.value.length > 0 && app.socket.hasOpenState()) {
-				var privParse = msg.value.match(rexp);
-				var isPrivMsg = !!privParse;
-				var body = {
-					type: "user.msg." + (isPrivMsg ? 'private' : 'public'),
-					text: isPrivMsg ? privParse[2] : msg.value
-				};
-				if (isPrivMsg) {
-					body.receiver = privParse[1];
-				}
-				app.socket.sendJSON(body);
-				msg.value = "";
-			}
-		},
-		"click #get_users": function () {
-			app.requestUserList();
-		},
-		"click #clear": function () {
-			app.logClear();
-		}
-	};
-
 	this.socket = new Socket(this.options);
+	this.view = new ChatView(app);
 
 	this.attachSocketListeners();
-	this.attachDOMListeners();
 
 	return this;
 };
 ChatApp.prototype.log = function (obj) {
-	this.elements.loggerEl.innerHTML += new Date().toLocaleString() + ': ' + obj + '\n';
+	this.view.log(obj);
 };
 ChatApp.prototype.logClear = function () {
-	this.elements.loggerEl.innerHTML = "";
+	this.view.logClear();
 };
 ChatApp.prototype.attachSocketListeners = function () {
 	var app = this;
@@ -160,23 +91,6 @@ ChatApp.prototype.attachSocketListeners = function () {
 		app.onMessage.apply(app, arguments);
 	});
 };
-ChatApp.prototype.attachDOMListeners = function () {
-	var app = this,
-		eventType = '',
-		el = null,
-		listenerFn =  null,
-		parts;
-	for (var i in app.domListeners) {
-		if (app.domListeners.hasOwnProperty(i)) {
-			parts = i.split(' ');
-			eventType = parts[0];
-			el = document.querySelector(parts[1]);
-			listenerFn = app.domListeners[i];
-
-			el.addEventListener(eventType, listenerFn);
-		}
-	}
-};
 ChatApp.prototype.onMessage = function (data) {
 	var parsed = null;
 	var app = this;
@@ -192,22 +106,59 @@ ChatApp.prototype.onMessage = function (data) {
 		throw e;
 	}
 };
+ChatApp.prototype.connect = function () {
+	if (!this.socket.hasOpenState()) {
+		console.log('connecting');
+		this.socket.open();
+	}
+};
+ChatApp.prototype.disconnect = function () {
+	if (this.socket.hasOpenState()) {
+		console.log('disconnecting');
+		this.socket.close();
+	}
+	this.socket.stopTimer();
+};
+ChatApp.prototype.requestLogin = function (username) {
+	if (this.socket.hasOpenState() && username && username.length) {
+		this.socket.sendJSON({
+			type: 'user.login',
+			username: username
+		});
+	}
+};
+ChatApp.prototype.requestLogout = function () {
+	if (this.socket.hasOpenState()) {
+		this.socket.sendJSON({
+			type: 'user.logout'
+		});
+	}
+};
 ChatApp.prototype.requestUserList = function () {
 	this.socket.sendJSON({
 		type: "user.list"
 	});
 };
 ChatApp.prototype.renderUserList = function () {
-	var listEl = this.elements.userListEl;
-	listEl.innerHTML = "";
-	for (var i = 0; i < this.userList.length; i++) {
-		var item = document.createElement('li');
-		item.innerText = this.userList[i];
-		listEl.appendChild(item);
-	}
+	this.view.renderUserList();
 };
 ChatApp.prototype.clearUserList = function () {
-	var listEl = this.elements.userListEl;
-	listEl.innerHTML = "";
+	this.view.clearUserList();
 	this.userList = [];
+};
+ChatApp.prototype.sendChatMsg = function (msg) {
+	var app = this;
+	var rexp = app.msgTemplates.pm;
+	if (msg.length > 0 && app.socket.hasOpenState()) {
+		var privParse = msg.match(rexp);
+		var isPrivMsg = !!privParse;
+		var body = {
+			type: "user.msg." + (isPrivMsg ? 'private' : 'public'),
+			text: isPrivMsg ? privParse[2] : msg
+		};
+		if (isPrivMsg) {
+			body.receiver = privParse[1];
+		}
+		app.socket.sendJSON(body);
+	}
 };

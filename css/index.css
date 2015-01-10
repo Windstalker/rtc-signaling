@@ -1,6 +1,14 @@
+body {
+    font-family: 'Cuprum', sans-serif;
+    font-size: 12px;
+}
 #logger,
 #user_list {
     height: 100px;
     border: 1px solid #000000;
     overflow-y: scroll;
+}
+#logger {
+    font-family: inherit;
+    font-size: 14px;
 }
